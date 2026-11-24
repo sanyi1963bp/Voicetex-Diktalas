@@ -127,7 +127,13 @@ object ClaudeJavito {
                     if (r.optString("type") == "text") append(r.optString("text"))
                 }
             }
-            return tisztit(eredmeny).ifBlank { throw JavitasHiba("Üres válasz érkezett") }
+            val javitott = tisztit(eredmeny).ifBlank { throw JavitasHiba("Üres válasz érkezett") }
+            // Biztonsági fék: ha a modell válaszolna a szövegre vagy kitalálna valamit,
+            // a hossz árulkodó – ilyenkor inkább a nyers szöveg megy be.
+            if (javitott.length > nyers.length * 2 + 40 || javitott.length < nyers.length / 3) {
+                throw JavitasHiba("gyanús válasz – a nyers szöveg került be")
+            }
+            return javitott
         } catch (e: SocketTimeoutException) {
             throw JavitasHiba("Időtúllépés — lassú a net?")
         } catch (e: IOException) {

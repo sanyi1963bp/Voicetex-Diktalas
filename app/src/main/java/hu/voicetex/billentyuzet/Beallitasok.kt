@@ -29,5 +29,24 @@ class Beallitasok(context: Context) {
         get() = p.getString("nyelv", "hu-HU") ?: "hu-HU"
         set(v) = p.edit().putString("nyelv", v).apply()
 
+    /** A lebegő gomb helye a képernyő arányában (-1 = alaphelyzet a billentyűzet fölött). */
+    var lebegoX: Float
+        get() = p.getFloat("lebego_x", -1f)
+        set(v) = p.edit().putFloat("lebego_x", v).apply()
+
+    var lebegoY: Float
+        get() = p.getFloat("lebego_y", -1f)
+        set(v) = p.edit().putFloat("lebego_y", v).apply()
+
+    /** 0 = kicsi, 1 = közepes, 2 = nagy */
+    var lebegoMeret: Int
+        get() = p.getInt("lebego_meret", 1)
+        set(v) = p.edit().putInt("lebego_meret", v).apply()
+
+    /** A második érintés után el is küldi a szöveget. */
+    var autoKuldes: Boolean
+        get() = p.getBoolean("auto_kuldes", true)
+        set(v) = p.edit().putBoolean("auto_kuldes", v).apply()
+
     val vanKulcs: Boolean get() = apiKulcs.startsWith("sk-ant-")
 }

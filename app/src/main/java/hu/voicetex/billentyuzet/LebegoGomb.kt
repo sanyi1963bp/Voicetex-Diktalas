@@ -19,13 +19,18 @@ import android.speech.SpeechRecognizer
 import android.text.TextUtils
 import android.util.TypedValue
 import android.view.Gravity
+import android.view.HapticFeedbackConstants
+import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import android.view.accessibility.AccessibilityWindowInfo
+import android.widget.FrameLayout
 import android.widget.LinearLayout
+import android.widget.ScrollView
 import android.widget.TextView
+import kotlin.math.hypot
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -53,7 +58,6 @@ class LebegoGomb : AccessibilityService() {
     private lateinit var gomb: TextView
     private lateinit var buborek: TextView
     private var lathato = false
-    private var utolsoY = -1
 
     private var felismero: SpeechRecognizer? = null
     private var allapot = Allapot.KESZ
@@ -74,6 +78,7 @@ class LebegoGomb : AccessibilityService() {
 
     override fun onDestroy() {
         leallitFelismerot()
+        menuBezar()
         elrejt()
         scope.cancel()
         super.onDestroy()
@@ -118,13 +123,25 @@ class LebegoGomb : AccessibilityService() {
 
     // ------------------------------------------------------------------ lebegő panel
 
+    private var gombMeret = 52                 // dp
+    private var imeTeteje = -1                 // a billentyűzet teteje (képernyő-koordináta)
+    private var menu: View? = null
+
+    // Érintéskezelés: koppintás = diktálás, 1 mp = húzás, 2 mp (húzás nélkül) = menü
+    private var huzasMod = false
+    private var elmozdult = false
+    private var kezdoX = 0f
+    private var kezdoY = 0f
+
+    private fun meretDp() = when (beallitasok.lebegoMeret) { 0 -> 42; 2 -> 64; else -> 52 }
+
     private fun epitPanelt() {
         buborek = TextView(this).apply {
             setTextColor(Color.WHITE)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
             maxLines = 2
             ellipsize = TextUtils.TruncateAt.START
-            maxWidth = dp(240)
+            maxWidth = dp(220)
             setPadding(dp(10), dp(6), dp(10), dp(6))
             background = GradientDrawable().apply {
                 cornerRadius = dp(12).toFloat()
@@ -135,47 +152,81 @@ class LebegoGomb : AccessibilityService() {
         gomb = TextView(this).apply {
             text = "🎤"
             gravity = Gravity.CENTER
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 22f)
-            setOnClickListener { gombNyomva() }
-            setOnLongClickListener {
-                // Hosszú nyomás: a beállítások megnyitása
-                startActivity(Intent(this@LebegoGomb, BeallitasokActivity::class.java)
-                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-                true
-            }
+            setOnTouchListener(erintesFigyelo)
         }
         hatter("#E8C46A")
         panel = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            addView(buborek, LinearLayout.LayoutParams(-2, -2).apply { marginEnd = dp(6) })
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.END
+            addView(buborek, LinearLayout.LayoutParams(-2, -2).apply { bottomMargin = dp(6) })
             addView(gomb, LinearLayout.LayoutParams(dp(52), dp(52)))
+        }
+        alkalmazMeret()
+    }
+
+    private fun alkalmazMeret() {
+        gombMeret = meretDp()
+        gomb.setTextSize(TypedValue.COMPLEX_UNIT_SP, gombMeret * 0.42f)
+        gomb.layoutParams = (gomb.layoutParams as LinearLayout.LayoutParams).apply {
+            width = dp(gombMeret); height = dp(gombMeret)
         }
     }
 
-    private fun parameterek(y: Int) = WindowManager.LayoutParams(
-        WindowManager.LayoutParams.WRAP_CONTENT,
-        WindowManager.LayoutParams.WRAP_CONTENT,
-        WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
-        WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
-        PixelFormat.TRANSLUCENT
-    ).apply {
-        gravity = Gravity.TOP or Gravity.END
-        x = dp(12)
-        this.y = y
+    private fun kepernyo(): Rect = wm.currentWindowMetrics.bounds
+
+    /** A gomb középpontja: a mentett hely, vagy alaphelyzetben a billentyűzet fölött jobbra. */
+    private fun kozeppont(): Pair<Int, Int> {
+        val k = kepernyo()
+        val fel = dp(gombMeret) / 2
+        val x: Int
+        var y: Int
+        if (beallitasok.lebegoX >= 0f) {
+            x = (beallitasok.lebegoX * k.width()).toInt()
+            y = (beallitasok.lebegoY * k.height()).toInt()
+        } else {
+            x = k.width() - dp(12) - fel
+            y = (if (imeTeteje > 0) imeTeteje else k.height() * 2 / 3) - dp(10) - fel
+        }
+        // A billentyűzetre ne kerüljön rá
+        if (imeTeteje > 0) y = y.coerceAtMost(imeTeteje - dp(6) - fel)
+        return Pair(x.coerceIn(fel, k.width() - fel), y.coerceIn(fel, k.height() - fel))
+    }
+
+    /** Ablakparaméterek a középpont alapján; a buborék a gomb fölé, a képernyő belseje felé nyílik. */
+    private fun parameterek(cx: Int, cy: Int): WindowManager.LayoutParams {
+        val k = kepernyo()
+        val fel = dp(gombMeret) / 2
+        val bal = cx < k.width() / 2
+        panel?.gravity = if (bal) Gravity.START else Gravity.END
+        return WindowManager.LayoutParams(
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+            PixelFormat.TRANSLUCENT
+        ).apply {
+            gravity = Gravity.BOTTOM or (if (bal) Gravity.START else Gravity.END)
+            x = if (bal) cx - fel else k.width() - cx - fel
+            y = k.height() - cy - fel
+        }
     }
 
     private fun mutat(billentyuzetTeteje: Int) {
+        imeTeteje = billentyuzetTeteje
+        frissitHelyzet()
+    }
+
+    private fun frissitHelyzet() {
         val p = panel ?: return
-        val y = (billentyuzetTeteje - dp(52) - dp(10)).coerceAtLeast(0)
+        if (huzasMod) return
+        val (cx, cy) = kozeppont()
         try {
             if (!lathato) {
-                wm.addView(p, parameterek(y))
+                wm.addView(p, parameterek(cx, cy))
                 lathato = true
-            } else if (y != utolsoY) {
-                wm.updateViewLayout(p, parameterek(y))
+            } else {
+                wm.updateViewLayout(p, parameterek(cx, cy))
             }
-            utolsoY = y
         } catch (e: Exception) {
             lathato = false
         }
@@ -186,8 +237,186 @@ class LebegoGomb : AccessibilityService() {
         if (lathato) {
             try { wm.removeView(p) } catch (_: Exception) {}
             lathato = false
-            utolsoY = -1
         }
+    }
+
+    private val huzasIndito = Runnable {
+        huzasMod = true
+        gomb.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+        gomb.animate().scaleX(1.2f).scaleY(1.2f).setDuration(120).start()
+        frissitGombot("Húzd bárhová – tartsd tovább a menühöz")
+    }
+
+    private val menuIndito = Runnable {
+        if (huzasMod && !elmozdult) {
+            gomb.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+            huzasVege()
+            menuMutat()
+        }
+    }
+
+    private fun huzasVege() {
+        huzasMod = false
+        gomb.animate().scaleX(1f).scaleY(1f).setDuration(120).start()
+        frissitGombot(null)
+    }
+
+    private val erintesFigyelo = View.OnTouchListener { _, e ->
+        when (e.actionMasked) {
+            MotionEvent.ACTION_DOWN -> {
+                kezdoX = e.rawX; kezdoY = e.rawY
+                huzasMod = false; elmozdult = false
+                if (allapot == Allapot.KESZ) {
+                    handler.postDelayed(huzasIndito, 1_000)
+                    handler.postDelayed(menuIndito, 2_000)
+                }
+            }
+            MotionEvent.ACTION_MOVE -> {
+                val tav = hypot(e.rawX - kezdoX, e.rawY - kezdoY)
+                if (huzasMod) {
+                    if (tav > dp(10)) {
+                        elmozdult = true
+                        handler.removeCallbacks(menuIndito)
+                    }
+                    if (elmozdult) {
+                        try { wm.updateViewLayout(panel, parameterek(e.rawX.toInt(), e.rawY.toInt())) } catch (_: Exception) {}
+                    }
+                } else if (tav > dp(12)) {
+                    handler.removeCallbacks(huzasIndito)
+                    handler.removeCallbacks(menuIndito)
+                }
+            }
+            MotionEvent.ACTION_UP -> {
+                handler.removeCallbacks(huzasIndito)
+                handler.removeCallbacks(menuIndito)
+                if (huzasMod) {
+                    if (elmozdult) {
+                        val k = kepernyo()
+                        beallitasok.lebegoX = (e.rawX / k.width()).coerceIn(0f, 1f)
+                        beallitasok.lebegoY = (e.rawY / k.height()).coerceIn(0f, 1f)
+                    }
+                    huzasVege()
+                    frissitHelyzet()
+                } else if (menu == null && hypot(e.rawX - kezdoX, e.rawY - kezdoY) < dp(12)) {
+                    gombNyomva()
+                }
+            }
+            MotionEvent.ACTION_CANCEL -> {
+                handler.removeCallbacks(huzasIndito)
+                handler.removeCallbacks(menuIndito)
+                if (huzasMod) { huzasVege(); frissitHelyzet() }
+            }
+        }
+        true
+    }
+
+    // ------------------------------------------------------------------ gyorsmenü
+
+    private fun javitasFelirat() = "✨  Javítás: " + if (beallitasok.javitasBe) "BE" else "KI"
+    private fun kuldesFelirat() = "📤  Küldés a 2. érintésre: " + if (beallitasok.autoKuldes) "BE" else "KI"
+    private fun nyelvFelirat() = "🌍  Nyelv: " + Nyelvek.keres(beallitasok.nyelv).nev
+    private fun meretFelirat() = "📏  Méret: " + when (beallitasok.lebegoMeret) { 0 -> "kicsi"; 2 -> "nagy"; else -> "közepes" }
+
+    private fun menuMutat() {
+        if (menu != null) return
+        val lap = FrameLayout(this).apply {
+            setBackgroundColor(Color.parseColor("#99000000"))
+            setOnClickListener { menuBezar() }
+        }
+        val kartya = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(6), dp(10), dp(6), dp(10))
+            isClickable = true
+            background = GradientDrawable().apply {
+                cornerRadius = dp(16).toFloat()
+                setColor(Color.parseColor("#1E2A3A"))
+            }
+        }
+        menuTartalom(kartya)
+        lap.addView(kartya, FrameLayout.LayoutParams(dp(310), -2, Gravity.CENTER))
+        val p = WindowManager.LayoutParams(
+            WindowManager.LayoutParams.MATCH_PARENT,
+            WindowManager.LayoutParams.MATCH_PARENT,
+            WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
+            WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+            PixelFormat.TRANSLUCENT
+        )
+        try {
+            wm.addView(lap, p)
+            menu = lap
+        } catch (_: Exception) {}
+    }
+
+    private fun menuBezar() {
+        menu?.let { try { wm.removeView(it) } catch (_: Exception) {} }
+        menu = null
+    }
+
+    private fun menuSor(kartya: LinearLayout, szoveg: String, szin: String = "#FFFFFF", katt: (TextView) -> Unit) {
+        kartya.addView(TextView(this).apply {
+            text = szoveg
+            setTextColor(Color.parseColor(szin))
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
+            setPadding(dp(16), dp(13), dp(16), dp(13))
+            setOnClickListener { katt(this) }
+        }, LinearLayout.LayoutParams(-1, -2))
+    }
+
+    private fun menuCim(kartya: LinearLayout, szoveg: String) {
+        kartya.addView(TextView(this).apply {
+            text = szoveg
+            setTextColor(Color.parseColor("#E8C46A"))
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 17f)
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
+            setPadding(dp(16), dp(6), dp(16), dp(8))
+        })
+    }
+
+    private fun menuTartalom(kartya: LinearLayout) {
+        kartya.removeAllViews()
+        menuCim(kartya, "Voicetex lebegő mikrofon")
+        menuSor(kartya, javitasFelirat()) {
+            beallitasok.javitasBe = !beallitasok.javitasBe
+            it.text = javitasFelirat()
+        }
+        menuSor(kartya, kuldesFelirat()) {
+            beallitasok.autoKuldes = !beallitasok.autoKuldes
+            it.text = kuldesFelirat()
+        }
+        menuSor(kartya, nyelvFelirat()) { nyelvLista(kartya) }
+        menuSor(kartya, meretFelirat()) {
+            beallitasok.lebegoMeret = (beallitasok.lebegoMeret + 1) % 3
+            it.text = meretFelirat()
+            alkalmazMeret()
+            frissitHelyzet()
+        }
+        menuSor(kartya, "↺  Gomb vissza a billentyűzet fölé") {
+            beallitasok.lebegoX = -1f
+            beallitasok.lebegoY = -1f
+            menuBezar()
+            frissitHelyzet()
+        }
+        menuSor(kartya, "⚙  Összes beállítás") {
+            menuBezar()
+            startActivity(Intent(this, BeallitasokActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        }
+        menuSor(kartya, "✕  Bezárás", szin = "#9AA8B8") { menuBezar() }
+    }
+
+    private fun nyelvLista(kartya: LinearLayout) {
+        kartya.removeAllViews()
+        menuCim(kartya, "Diktálási nyelv")
+        val lista = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        val aktualis = beallitasok.nyelv
+        for (ny in Nyelvek.lista) {
+            menuSor(lista, (if (ny.kod == aktualis) "●  " else "○  ") + ny.nev,
+                szin = if (ny.kod == aktualis) "#E8C46A" else "#FFFFFF") {
+                beallitasok.nyelv = ny.kod
+                menuTartalom(kartya)
+            }
+        }
+        kartya.addView(ScrollView(this).apply { addView(lista) }, LinearLayout.LayoutParams(-1, dp(360)))
+        menuSor(kartya, "←  Vissza", szin = "#9AA8B8") { menuTartalom(kartya) }
     }
 
     private fun frissitGombot(uzenet: String? = null) {
@@ -209,7 +438,7 @@ class LebegoGomb : AccessibilityService() {
         frissitGombot(uzenet)
         val ez = munkamenet
         handler.postDelayed({
-            if (ez == munkamenet && allapot == Allapot.KESZ) {
+            if (ez == munkamenet && allapot == Allapot.KESZ && !huzasMod) {
                 buborek.visibility = View.GONE
                 frissitLathatosag()
             }
@@ -352,7 +581,7 @@ class LebegoGomb : AccessibilityService() {
         }
         if (!beallitasok.javitasBe || !beallitasok.vanKulcs) {
             allapot = Allapot.KESZ
-            villant(if (beszur(nyers)) "Beírva" else "Nem találom a szövegmezőt")
+            if (beszur(nyers)) beirvaEsKuldes("Beírva") else villant("Nem találom a szövegmezőt")
             return
         }
 
@@ -373,8 +602,67 @@ class LebegoGomb : AccessibilityService() {
                 return@launch
             }
             allapot = Allapot.KESZ
-            villant(if (beszur(javitott)) "✓ Javítva" else "Nem találom a mezőt — a szöveg a vágólapon van")
+            if (beszur(javitott)) beirvaEsKuldes("✓ Javítva")
+            else villant("Nem találom a mezőt — a szöveg a vágólapon van")
         }
+    }
+
+    /** Beírás után, ha be van kapcsolva, a küldés gombot is megnyomja. */
+    private fun beirvaEsKuldes(uzenet: String) {
+        if (!beallitasok.autoKuldes) {
+            villant(uzenet)
+            return
+        }
+        frissitGombot("$uzenet – küldés…")
+        // Kis szünet: sok appban a küldés gomb csak akkor jelenik meg, ha már van szöveg
+        handler.postDelayed({
+            val ok = try { kuld() } catch (e: Exception) { false }
+            villant(if (ok) "$uzenet és elküldve" else "$uzenet – küldés gombot nem találtam")
+        }, 450)
+    }
+
+    private val KULDES_SZAVAK = Regex(
+        "(?i)^(küldés|elküld|küld|üzenet küldése|send|send message|senden|envoyer|enviar|invia|skicka|send melding|wyślij|odeslat|odoslať|trimite|pošalji|lähetä|send besked|отправить|надіслати)"
+    )
+
+    /**
+     * Elküldi a beírt szöveget: először a mező közelében lévő "Küldés" gombot
+     * keresi meg és nyomja meg, ha nincs ilyen, a billentyűzet Enter/Küldés műveletét kéri.
+     */
+    private fun kuld(): Boolean {
+        val mezo = fokuszaltMezo()
+        val mezoHatar = Rect()
+        mezo?.getBoundsInScreen(mezoHatar)
+        rootInActiveWindow?.let { gyoker ->
+            val jelolt = keresKuldoGomb(gyoker, mezoHatar)
+            var n: AccessibilityNodeInfo? = jelolt
+            while (n != null && !n.isClickable) n = n.parent
+            if (n?.performAction(AccessibilityNodeInfo.ACTION_CLICK) == true) return true
+        }
+        return mezo?.performAction(AccessibilityNodeInfo.AccessibilityAction.ACTION_IME_ENTER.id) == true
+    }
+
+    private fun keresKuldoGomb(gyoker: AccessibilityNodeInfo, mezoHatar: Rect): AccessibilityNodeInfo? {
+        val sor = ArrayDeque<AccessibilityNodeInfo>()
+        sor.add(gyoker)
+        var szamlalo = 0
+        val savFelett = dp(140)
+        while (sor.isNotEmpty() && szamlalo < 800) {
+            val n = sor.removeFirst()
+            szamlalo++
+            if (!n.isEditable && n.isVisibleToUser) {
+                val leiras = n.contentDescription?.toString()?.trim()
+                val gombSzoveg = if ((n.className?.toString() ?: "").contains("Button")) n.text?.toString()?.trim() else null
+                val cimke = leiras ?: gombSzoveg
+                if (cimke != null && cimke.length <= 25 && KULDES_SZAVAK.containsMatchIn(cimke)) {
+                    val r = Rect()
+                    n.getBoundsInScreen(r)
+                    if (mezoHatar.isEmpty || r.centerY() in (mezoHatar.top - savFelett)..(mezoHatar.bottom + savFelett)) return n
+                }
+            }
+            for (i in 0 until n.childCount) n.getChild(i)?.let { sor.add(it) }
+        }
+        return null
     }
 
     // ------------------------------------------------------------------ beszúrás
@@ -387,8 +675,13 @@ class LebegoGomb : AccessibilityService() {
         return szoveg.substring((vege - 300).coerceAtLeast(0), vege)
     }
 
-    private fun mezoSzovege(mezo: AccessibilityNodeInfo): String =
-        if (mezo.isShowingHintText) "" else mezo.text?.toString() ?: ""
+    /** A mező valódi szövege; a halvány tippszöveget ("Írj hozzászólást…") üresnek veszi. */
+    private fun mezoSzovege(mezo: AccessibilityNodeInfo): String {
+        if (mezo.isShowingHintText) return ""
+        val szoveg = mezo.text?.toString() ?: return ""
+        val tipp = mezo.hintText?.toString()
+        return if (tipp != null && szoveg == tipp) "" else szoveg
+    }
 
     /**
      * Beszúrás a fókuszban lévő mezőbe, a kurzor helyére.
@@ -411,6 +704,12 @@ class LebegoGomb : AccessibilityService() {
         val kellSzokoz = elotte.isNotEmpty() && !elotte.last().isWhitespace() &&
             beszurando.firstOrNull()?.let { it !in ".,!?;:)…" } == true
         val betet = (if (kellSzokoz) " " else "") + beszurando
+        // 1. Beillesztés a kurzor helyére – a mező többi része (megemlítés, név,
+        //    formázás) érintetlen marad. Ez a megbízható út a Facebookhoz és társaihoz.
+        vagolapra(betet)
+        if (mezo.performAction(AccessibilityNodeInfo.ACTION_PASTE)) return true
+
+        // 2. Tartalék: a teljes szöveg visszaírása – csak egyszerű mezőknél jó
         val uj = elotte + betet + szoveg.substring(vege)
 
         val ok = mezo.performAction(
@@ -430,9 +729,7 @@ class LebegoGomb : AccessibilityService() {
             )
             return true
         }
-        // Tartalék: vágólap + beillesztés
-        vagolapra(betet)
-        return mezo.performAction(AccessibilityNodeInfo.ACTION_PASTE)
+        return false
     }
 
     private fun vagolapra(s: String) {

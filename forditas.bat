@@ -11,14 +11,14 @@ if errorlevel 1 (
   goto vege
 )
 if not exist apk mkdir apk
-copy /y "app\build\outputs\apk\teljes\release\app-teljes-release.apk" "..\voicetex-diktalo-1.4.0.apk" >nul
-copy /y "app\build\outputs\apk\lite\release\app-lite-release.apk" "..\voicetex-diktalo-lite-1.4.0.apk" >nul
+copy /y "app\build\outputs\apk\teljes\release\app-teljes-release.apk" "..\voicetex-diktalo-1.5.1.apk" >nul
+copy /y "app\build\outputs\apk\lite\release\app-lite-release.apk" "..\voicetex-diktalo-lite-1.5.1.apk" >nul
 copy /y "app\build\outputs\apk\teljes\release\app-teljes-release.apk" "apk\voicetex-diktalo.apk" >nul
 copy /y "app\build\outputs\apk\lite\release\app-lite-release.apk" "apk\voicetex-diktalo-lite.apk" >nul
 echo.
 echo  KESZ:
-echo    Teljes (lebego gombbal, USB-n): ..\voicetex-diktalo-1.4.0.apk
-echo    Lite (csak billentyuzet, linkrol): ..\voicetex-diktalo-lite-1.4.0.apk
+echo    Teljes (lebego gombbal, USB-n): ..\voicetex-diktalo-1.5.1.apk
+echo    Lite (csak billentyuzet, linkrol): ..\voicetex-diktalo-lite-1.5.1.apk
 :vege
 echo.
 pause

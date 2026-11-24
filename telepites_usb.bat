@@ -13,7 +13,7 @@ if not exist "%ADB%" (
   goto vege
 )
 "%ADB%" devices
-"%ADB%" install -r "..\voicetex-diktalo-1.4.0.apk"
+"%ADB%" install -r "..\voicetex-diktalo-1.5.1.apk"
 :vege
 echo.
 pause

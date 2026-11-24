@@ -12,7 +12,9 @@ kijavítja a félrehallott szavakat. A javított szöveg oda kerül, ahol a kurz
 - **Diktáló billentyűzet** – nagy mikrofon gomb. Hosszan is beszélhetsz,
   szünetekkel, a végén „Kész”.
 - **Lebegő mikrofon** – kis sárga gomb a megszokott billentyűzeted fölött.
-  Egy koppintás: diktálás, még egy: kész.
+  Egy koppintás: diktálás, még egy: kész, javítás, beírás és **automatikus
+  küldés** (kikapcsolható). 1 mp nyomva tartás: bárhová elhúzható.
+  2 mp nyomva tartás: gyorsmenü (javítás, küldés, nyelv, méret, alaphelyzet).
 - **AI-javítás** – Claude Haiku, a saját API-kulcsoddal. Ha nincs internet,
   a javítatlan szöveg kerül be.
 - **„Nyers” gomb** – egy gombnyomással visszaállítja az eredeti, javítatlan szöveget.
@@ -65,7 +67,15 @@ vagy a mellékelt parancsfájlok, Windowson).
 4. A telefonon kapcsold be a fejlesztői módot és az **USB-hibakeresést**,
    csatlakoztasd kábellel, majd futtasd a **`telepites_usb.bat`**-ot.
 
-### Miért USB-n?
+### Kábel nélkül: Wi-Fi
+
+A **`telepites_wifi.bat`** ugyanezt Wi-Fi-n végzi: a telefonon a Fejlesztői
+beállításokban kapcsold be a **Vezeték nélküli hibakeresést**, első
+alkalommal párosítsd a gépet (*Eszköz párosítása párosítókóddal*), utána
+elég a telefon képernyőjén látható „IP-cím és port”-ot beírni. A port
+általában minden alkalommal változik.
+
+### Miért USB-n vagy Wi-Fi-n?
 
 A lebegő mikrofon kisegítő szolgáltatást (Accessibility) használ. A Google
 Play Protect a máshonnan telepített ilyen appokat letiltja, az USB-n
