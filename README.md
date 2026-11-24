@@ -75,6 +75,8 @@ alkalommal párosítsd a gépet (*Eszköz párosítása párosítókóddal*), ut
 elég a telefon képernyőjén látható „IP-cím és port”-ot beírni. A port
 általában minden alkalommal változik.
 
+A **`frissites.bat`** egy lépésben lefordít és Wi-Fi-n telepít (kábelhez a cím helyett írd: `usb`).
+
 ### Miért USB-n vagy Wi-Fi-n?
 
 A lebegő mikrofon kisegítő szolgáltatást (Accessibility) használ. A Google
