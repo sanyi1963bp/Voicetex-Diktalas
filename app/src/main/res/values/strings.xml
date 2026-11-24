@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Voicetex Diktálás</string>
+    <string name="ime_name">Voicetex diktáló</string>
+    <string name="lebego_nev">Voicetex lebegő mikrofon</string>
+    <string name="lebego_leiras">Lebegő mikrofon gombot tesz a billentyűzet fölé. Megnyomva diktálhatsz, és a Claude-dal javított szöveg a szövegmezőbe kerül. A szolgáltatás csak azt figyeli, mikor látszik billentyűzet, és csak a fókuszban lévő mezőbe ír.</string>
+</resources>

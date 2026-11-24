@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Egyszerű mikrofon ikon a 108dp-s adaptív ikon közepén -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#E8C46A"
+        android:pathData="M54,30 C49.6,30 46,33.6 46,38 L46,54 C46,58.4 49.6,62 54,62 C58.4,62 62,58.4 62,54 L62,38 C62,33.6 58.4,30 54,30 Z" />
+    <path
+        android:fillColor="#E8C46A"
+        android:pathData="M38,52 L42,52 C42,58.6 47.4,64 54,64 C60.6,64 66,58.6 66,52 L70,52 C70,60.2 63.9,67 56,67.9 L56,74 L64,74 L64,78 L44,78 L44,74 L52,74 L52,67.9 C44.1,67 38,60.2 38,52 Z" />
+</vector>
