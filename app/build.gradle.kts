@@ -17,8 +17,29 @@ android {
         applicationId = "hu.voicetex.billentyuzet"
         minSdk = 30
         targetSdk = 35
-        versionCode = 5
-        versionName = "1.3.0"
+        versionCode = 6
+        versionName = "1.4.0"
+    }
+
+    buildFeatures {
+        buildConfig = true
+    }
+
+    // Két kiadás: a "teljes" a lebegő gombbal (USB-n telepíthető),
+    // a "lite" csak a billentyűzettel (linkről is telepíthető, mert nincs benne
+    // kisegítő szolgáltatás, amit a Play Protect letiltana).
+    flavorDimensions += "kiadas"
+    productFlavors {
+        create("teljes") {
+            dimension = "kiadas"
+            buildConfigField("boolean", "LEBEGO_GOMB", "true")
+        }
+        create("lite") {
+            dimension = "kiadas"
+            applicationIdSuffix = ".lite"
+            versionNameSuffix = "-lite"
+            buildConfigField("boolean", "LEBEGO_GOMB", "false")
+        }
     }
 
     buildTypes {

@@ -2,18 +2,23 @@
 chcp 65001 >nul
 cd /d "%~dp0"
 echo.
-echo  Voicetex Diktalas - forditas
-echo  ----------------------------
-call gradlew.bat assembleRelease --console=plain
+echo  Voicetex Diktalas - forditas (teljes + lite)
+echo  --------------------------------------------
+call gradlew.bat assembleTeljesRelease assembleLiteRelease --console=plain
 if errorlevel 1 (
   echo.
   echo  HIBA: a forditas nem sikerult. Masold ki a fenti hibauzenetet Claude-nak.
   goto vege
 )
-copy /y "app\build\outputs\apk\release\app-release.apk" "..\voicetex-diktalo-1.3.0.apk" >nul
+if not exist apk mkdir apk
+copy /y "app\build\outputs\apk\teljes\release\app-teljes-release.apk" "..\voicetex-diktalo-1.4.0.apk" >nul
+copy /y "app\build\outputs\apk\lite\release\app-lite-release.apk" "..\voicetex-diktalo-lite-1.4.0.apk" >nul
+copy /y "app\build\outputs\apk\teljes\release\app-teljes-release.apk" "apk\voicetex-diktalo.apk" >nul
+copy /y "app\build\outputs\apk\lite\release\app-lite-release.apk" "apk\voicetex-diktalo-lite.apk" >nul
 echo.
-echo  KESZ: ..\voicetex-diktalo-1.3.0.apk
-echo  Masold at a telefonra, es telepitsd.
+echo  KESZ:
+echo    Teljes (lebego gombbal, USB-n): ..\voicetex-diktalo-1.4.0.apk
+echo    Lite (csak billentyuzet, linkrol): ..\voicetex-diktalo-lite-1.4.0.apk
 :vege
 echo.
 pause

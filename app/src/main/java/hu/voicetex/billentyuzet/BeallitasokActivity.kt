@@ -160,23 +160,25 @@ class BeallitasokActivity : Activity() {
         })
         tartalom.addView(probaEredmeny)
 
-        // 6. Lebegő gomb
-        tartalom.addView(cim("6. Lebegő mikrofon (a megszokott billentyűzet fölött)"))
-        lebegoAllapot = szoveg("", 14f)
-        tartalom.addView(lebegoAllapot)
-        tartalom.addView(szoveg(
-            "Kisegítő szolgáltatásként működik. Bekapcsolás: Kisegítő lehetőségek → Telepített alkalmazások " +
-                "→ Voicetex lebegő mikrofon → Be.\n" +
-                "Ha szürke és nem kapcsolható: Beállítások → Alkalmazások → Voicetex Diktálás → jobb felül ⋮ → " +
-                "„Korlátozott beállítások engedélyezése”, utána próbáld újra.", 13f, szin = "#9AA8B8"
-        ))
-        tartalom.addView(gomb("Kisegítő lehetőségek megnyitása") {
-            startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
-        })
+        // 6. Lebegő gomb (csak a teljes változatban)
+        if (BuildConfig.LEBEGO_GOMB) {
+            tartalom.addView(cim("6. Lebegő mikrofon (a megszokott billentyűzet fölött)"))
+            lebegoAllapot = szoveg("", 14f)
+            tartalom.addView(lebegoAllapot)
+            tartalom.addView(szoveg(
+                "Kisegítő szolgáltatásként működik. Bekapcsolás: Kisegítő lehetőségek → Telepített alkalmazások " +
+                    "→ Voicetex lebegő mikrofon → Be.\n" +
+                    "Ha szürke és nem kapcsolható: Beállítások → Alkalmazások → Voicetex Diktálás → jobb felül ⋮ → " +
+                    "„Korlátozott beállítások engedélyezése”, utána próbáld újra.", 13f, szin = "#9AA8B8"
+            ))
+            tartalom.addView(gomb("Kisegítő lehetőségek megnyitása") {
+                startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+            })
+
+        }
 
         // 7. Használat
-        tartalom.addView(cim("7. Használat"))
-        tartalom.addView(cim("6. Használat"))
+        tartalom.addView(cim("Használat"))
         tartalom.addView(gomb("Váltás a Voicetex billentyűzetre") {
             (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager).showInputMethodPicker()
         })
@@ -186,8 +188,8 @@ class BeallitasokActivity : Activity() {
                 "• Javítás BE/KI: a Claude-javítás ki-be kapcsolása.\n" +
                 "• Nyers: az utolsó javított szöveget lecseréli az eredeti, javítatlanra (és vissza).\n" +
                 "• Ha nincs internet, a javítatlan szöveg kerül be.\n" +
-                "• Lebegő gomb: megnyomva diktálsz, újra megnyomva kész. Hosszan nyomva megnyílnak a beállítások. " +
-                "Jelszómezőknél nem jelenik meg.\n" +
+                (if (BuildConfig.LEBEGO_GOMB) "• Lebegő gomb: megnyomva diktálsz, újra megnyomva kész. Hosszan nyomva megnyílnak a beállítások. " +
+                    "Jelszómezőknél nem jelenik meg.\n" else "") +
                 "• A felismerést a telefon alapértelmezett hangbeviteli szolgáltatása végzi " +
                 "(Beállítások → Általános kezelés → Hangbevitel).", 14f
         ))
@@ -219,7 +221,7 @@ class BeallitasokActivity : Activity() {
 
         val lebegoBe = (Settings.Secure.getString(contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES) ?: "")
             .split(':').any { it.startsWith("$packageName/") }
-        lebegoAllapot.text = if (lebegoBe) "✓ Bekapcsolva" else "✗ Kikapcsolva"
+        if (BuildConfig.LEBEGO_GOMB) lebegoAllapot.text = if (lebegoBe) "✓ Bekapcsolva" else "✗ Kikapcsolva"
 
         kulcsAllapot.text = when {
             beallitasok.vanKulcs -> "✓ Elmentve (…${beallitasok.apiKulcs.takeLast(4)})"

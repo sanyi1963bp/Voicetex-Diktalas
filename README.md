@@ -36,16 +36,32 @@ ami átlagos használatnál nagyon sokáig elég.
 
 A kulcs csak a telefonodon, az app zárt tárhelyén van.
 
-## Telepítés
+## Letöltés
 
-Az appot forrásból kell lefordítani (Android Studio vagy a mellékelt
-parancsfájlok, Windowson).
+| Változat | Mit tud | Telepítés |
+| --- | --- | --- |
+| **[Lite – letöltés](https://github.com/sanyi1963bp/Voicetex-Diktalas/raw/main/apk/voicetex-diktalo-lite.apk)** | diktáló billentyűzet, AI-javítás, 22 nyelv | telefonon a linkre koppintva |
+| **[Teljes – letöltés](https://github.com/sanyi1963bp/Voicetex-Diktalas/raw/main/apk/voicetex-diktalo.apk)** | mint a Lite + lebegő mikrofon gomb | USB-kábellel a gépről (lásd lent) |
+
+**Lite telepítése:** nyisd meg a linket a telefonon, töltsd le, majd koppints a
+letöltött fájlra. A telefon megkérdezi, engedélyezed-e a telepítést ebből a
+forrásból (Chrome vagy Fájlok) – engedélyezd, és telepítsd. A Play Protect
+figyelmeztethet, hogy ismeretlen fejlesztőtől származik; ilyenkor válaszd a
+„Telepítés mindenképp” lehetőséget.
+
+A két változat két külön alkalmazás, egy telefonon akár mindkettő lehet.
+
+## Fordítás és a teljes változat telepítése
+
+A teljes változat a lebegő gomb miatt csak USB-n telepíthető (lásd lent),
+ehhez a mellékelt APK-t vagy saját fordítást használhatsz (Android Studio
+vagy a mellékelt parancsfájlok, Windowson).
 
 1. Telepítsd az [Android Studiót](https://developer.android.com/studio)
    (ez hozza az Android SDK-t és a Javát).
 2. Töltsd le ezt a repót, és nyisd meg Android Studióban egyszer, hogy
    létrejöjjön a `local.properties` (az SDK helyével).
-3. Futtasd a **`forditas.bat`**-ot. Az APK a repó melletti mappába kerül.
+3. Futtasd a **`forditas.bat`**-ot. Mindkét APK elkészül, az `apk` mappába és a repó melletti mappába is.
 4. A telefonon kapcsold be a fejlesztői módot és az **USB-hibakeresést**,
    csatlakoztasd kábellel, majd futtasd a **`telepites_usb.bat`**-ot.
 
